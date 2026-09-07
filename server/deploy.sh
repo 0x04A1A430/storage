@@ -283,7 +283,7 @@ case "$-" in *i*) ;; *) return ;; esac
 DARK_RED='\033[38;5;160m'
 GRAY='\033[38;5;242m'
 NC='\033[0m'
-LOGO_COLOR="$DARK_RED"
+LOGO_COLOR="\033[38;5;160m"
 
 TERM_WIDTH=$(tput cols 2>/dev/null || stty size 2>/dev/null | awk '{print $2}')
 if [ -z "$TERM_WIDTH" ] || [ "$TERM_WIDTH" -lt 40 ] 2>/dev/null; then
