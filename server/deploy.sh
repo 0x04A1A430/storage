@@ -279,9 +279,11 @@ setup_motd() {
 [ -t 1 ] || return
 case "$-" in *i*) ;; *) return ;; esac
 
-DARK_RED='\033[38;5;88m'
+# Цвета (160 или 196 лучше читаются на темном фоне, чем 88)
+DARK_RED='\033[38;5;160m'
 GRAY='\033[38;5;242m'
 NC='\033[0m'
+LOGO_COLOR="$DARK_RED"
 
 TERM_WIDTH=$(tput cols 2>/dev/null || stty size 2>/dev/null | awk '{print $2}')
 if [ -z "$TERM_WIDTH" ] || [ "$TERM_WIDTH" -lt 40 ] 2>/dev/null; then
@@ -293,19 +295,19 @@ LEFT_INDENT=3
 RIGHT_INDENT=3
 
 LOGO_PAD_VAL=$(( (TERM_WIDTH - LOGO_WIDTH) / 2 ))
-[ $LOGO_PAD_VAL -lt 0 ] && LOGO_PAD_VAL=0
+[ "$LOGO_PAD_VAL" -lt 0 ] && LOGO_PAD_VAL=0
 LOGO_PAD=$(printf '%*s' "$LOGO_PAD_VAL" "")
 LEFT_PAD=$(printf '%*s' "$LEFT_INDENT" "")
 
 print_row() {
     local label="$1" value="$2"
     local spacer=$(( TERM_WIDTH - LEFT_INDENT - 20 - ${#value} - RIGHT_INDENT ))
-    [ $spacer -lt 1 ] && spacer=1
+    [ "$spacer" -lt 1 ] && spacer=1
     printf "${LEFT_PAD}${GRAY}%-20s${NC}%s${DARK_RED}%s${NC}\n" \
         "$label" "$(printf '%*s' "$spacer" "")" "$value"
 }
 
-echo -e "${LOGO_COLOR}"
+printf "%b\n" "${LOGO_COLOR}"
 printf "%s%s\n" "$LOGO_PAD" "                                         .x+=:.                  "
 printf "%s%s\n" "$LOGO_PAD" "            ..             .ue~~%u.     z\`    ^%                 "
 printf "%s%s\n" "$LOGO_PAD" "           @L            .d88   z88i       .   <k    x.    .     "
@@ -318,13 +320,16 @@ printf "%s%s\n" "$LOGO_PAD" "9888        888E  888I '8888E   8888E   @8Wou 9%   
 printf "%s%s\n" "$LOGO_PAD" "?8888u../  x888N><888'  ?888E   8888\" .888888P\`    \"8888Y 8888\"  "
 printf "%s%s\n" "$LOGO_PAD" " \"8888P'    \"88\"  888    \"88&   888\"  \`   ^\"F       \`Y\"   'YP    "
 printf "%s%s\n" "$LOGO_PAD" "   \"P'            88F      \"\"==*\"\"                               "
-echo -e "${NC}"
+printf "%b\n" "${NC}"
 
-UPTIME=$(uptime -p 2>/dev/null | sed 's/up //' || uptime 2>/dev/null | awk -F'( |,|:)+' '{print $6" hours"}')
+# Надежный сбор Uptime
+UPTIME=$(uptime -p 2>/dev/null | sed 's/^up //')
+[ -z "$UPTIME" ] && UPTIME=$(uptime 2>/dev/null | awk -F'( |,|:)+' '{print $6" hours"}')
+
 LOAD=$(awk '{print $1" "$2" "$3}' /proc/loadavg)
 USERS=$(who 2>/dev/null | wc -l)
-MEM=$(free -m | awk '/^Mem:/ {printf "%s/%s MiB (%.1f%%)", $3, $2, $3*100/$2}')
-DISK=$(df -hP / | awk '$NF=="/"{printf "%s/%s (%s)", $3,$2,$5}')
+MEM=$(free -m 2>/dev/null | awk '/^Mem:/ {printf "%s/%s MiB (%.1f%%)", $3, $2, ($2>0 ? $3*100/$2 : 0)}')
+DISK=$(df -hP / 2>/dev/null | awk '$NF=="/"{printf "%s/%s (%s)", $3,$2,$5}')
 CPU=$(LC_ALL=C top -bn1 2>/dev/null | awk -F',' '/Cpu\(s\)/ {for(i=1;i<=NF;i++) if($i ~ /id/) {gsub(/[^0-9.]/,"",$i); if($i!="") printf "%.1f%%", 100-$i}}')
 IP=$(cat /etc/vps_ip 2>/dev/null || echo "N/A")
 
