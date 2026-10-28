@@ -1,11 +1,4 @@
 #!/bin/bash
-#
-# q.sh — server control template.
-# Copy to /root/q.sh, chmod +x, then:
-#   - fill services_registry() below;
-#   - set TG_BOT_TOKEN, TG_CHAT_ID and ZIP_PASSWORD in /opt/.env;
-#   - optionally override BOT_DIR / BACKUP_DIR / OPENCODE_*.
-#
 
 if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root"
@@ -153,9 +146,6 @@ spin_run() {
 }
 
 WHITELIST_FILE="/opt/.whitelist"
-BOT_DIR="${BOT_DIR:-/root/bot}"
-BACKUP_DIR="${BACKUP_DIR:-/root/backup}"
-ZIP_PASSWORD="${ZIP_PASSWORD:-}"
 
 services_registry() {
     # Формат: id|name|type|dir|command|info
@@ -364,6 +354,10 @@ ALWAYS_WHITELIST_NAMES=(
     "key.json"
     ".secrets"
     "bot"
+    "remnawave"
+    "remnawave-bot"
+    "Heroku"
+    "pornbot"
     ".ssh"
 )
 
@@ -498,7 +492,7 @@ clear_system() {
 
     ui_section "Кэши и мусор проектов"
     spin_run "кэши Python/Node и __pycache__" \
-        bash -c "find '$BOT_DIR' -type d -name '__pycache__' -prune -exec rm -rf -- {} + 2>/dev/null; find '$BOT_DIR' -type d \( -name '.pytest_cache' -o -name '.ruff_cache' \) -prune -exec rm -rf -- {} + 2>/dev/null; rm -rf /root/.npm/_cacache /root/.npm/_logs /root/.cache/pip /root/.cache/uv /root/.cache/yarn /root/.cache/node-gyp /root/.local/share/Trash /root/.thumbnails 2>/dev/null"
+        bash -c 'find /root/bot -type d -name "__pycache__" -prune -exec rm -rf -- {} + 2>/dev/null; find /root/bot -type d \( -name ".pytest_cache" -o -name ".ruff_cache" \) -prune -exec rm -rf -- {} + 2>/dev/null; rm -rf /root/.npm/_cacache /root/.npm/_logs /root/.cache/pip /root/.cache/uv /root/.cache/yarn /root/.cache/node-gyp /root/.local/share/Trash /root/.thumbnails 2>/dev/null'
 
     ui_section "Очистка /root"
     ui_info "настройки и данные OpenCode защищены"
@@ -528,18 +522,13 @@ create_backup() {
         ui_err "Не заданы переменные в $ENV_FILE (нужны TG_BOT_TOKEN и TG_CHAT_ID)"
         return 1
     fi
-    if [[ -z "$ZIP_PASSWORD" ]]; then
-        ui_banner "BACKUP" "telegram archive"
-        ui_err "Не задан ZIP_PASSWORD в $ENV_FILE"
-        return 1
-    fi
 
     ui_banner "BACKUP" "bot + scripts + /opt -> Telegram"
 
     local timestamp=$(date +"%d.%m_%H.%M")
     local tar_name="backup_$timestamp.tar.gz"
     local zip_name="backup_$timestamp.zip"
-    local backup_dir="$BACKUP_DIR"
+    local backup_dir="/root/backup"
     local tar_path="$backup_dir/$tar_name"
     local zip_path="$backup_dir/$zip_name"
 
@@ -568,7 +557,7 @@ create_backup() {
         --exclude="*/music.db-*" \
         --exclude="*.log" \
         -czf "$tar_path" \
-        "$BOT_DIR" \
+        /root/bot \
         "${sh_files[@]}" \
         /opt/
 
@@ -578,7 +567,7 @@ create_backup() {
     fi
     ui_ok "архив: $(du -h "$tar_path" | cut -f1)"
 
-    spin_run "упаковка в zip" zip -j -P "$ZIP_PASSWORD" "$zip_path" "$tar_path"
+    spin_run "упаковка в zip" zip -j -P "1808" "$zip_path" "$tar_path"
     rm -f "$tar_path"
 
     if [[ ! -f "$zip_path" ]]; then
@@ -644,7 +633,7 @@ create_backup() {
 install_cron() {
     local script_path
     script_path=$(realpath "$0")
-    local cron_line="0 4 * * * $script_path zip >> $BACKUP_DIR/cron.log 2>&1"
+    local cron_line="0 4 * * * $script_path zip >> /root/backup/cron.log 2>&1"
     (crontab -l 2>/dev/null | grep -v "$script_path zip"; echo "$cron_line") | crontab -
     ui_banner "CRON" "automatic backup"
     ui_ok "ежедневно в 04:00"
